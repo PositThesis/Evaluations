@@ -26,7 +26,7 @@ def run(ty, points, radius, matrices, output):
     return f'{ty} finished'
 
 for ty in ['Float', 'Double', 'LongDouble', 'Posit162', 'Posit322', 'Posit644']:
-    if 'Posit' in ty: continue
+    # if 'Posit' in ty: continue
     for num_points in range(3, 1000):
         # after 50: only do every second
         if num_points > 50 and num_points % 2 != 0:

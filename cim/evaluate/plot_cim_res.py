@@ -52,5 +52,23 @@ if __name__ == '__main__':
             marker = '.'
         )
     plt.yscale('log')
+    plt.xlabel('Number of contour samples')
+    plt.ylabel('Residual')
     plt.legend()
-    plt.savefig('cim_residuals.svg')
+    plt.savefig('all_residuals.svg')
+    plt.close()
+
+    for ty in types:
+        xy = xy_from_data(data, ty)
+        plt.plot(
+            xy['x'],
+            xy['y_max'],
+            label = f'{ty}',
+            linestyle = '-'
+        )
+    plt.xlabel('Number of contour samples')
+    plt.ylabel('Largest residual')
+    plt.yscale('log')
+    plt.legend()
+    plt.savefig('max_residuals.svg')
+    plt.close()
