@@ -120,7 +120,7 @@
                         mkdir -p output/sherman5
 
                         echo "Running random matrix"
-                        python run_krylov.py -im random40.mtx -iv random40.vec -o output/random40 -tol 1e-80 -max_iter 50 -restart -1
+                        python run_krylov.py -im random40.mtx -iv random40.vec -o output/random40 -tol 1e-80 -max_iter 100 -restart -1
 
                         echo "Running sherman5 matrix"
                         python run_krylov.py -im sherman5.mtx -iv sherman5.vec -o output/sherman5 -tol 1e-80 -max_iter 4000 -restart 30
@@ -156,7 +156,7 @@
 
                         ls data/output/sherman5
 
-                        python postprocess_krylov.py -i data/output/random40 -o plots/random40 -max_iter 50 -tol 1e-80
+                        python postprocess_krylov.py -i data/output/random40 -o plots/random40 -max_iter 100 -tol 1e-80
                         python postprocess_krylov.py -i data/output/sherman5 -o plots/sherman5 -max_iter 4000 -tol 1e-80
                     '';
 
