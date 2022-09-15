@@ -97,7 +97,8 @@
                         cp -riva ${packages.run_cim}/data $out/data
                         cp octave_eigs.mtx $out/octave_eigs.mtx
                         cp eigs.svg $out/eigs.svg
-                        cp cim_residuals.svg $out/cim_residuals.svg
+                        cp max_residuals.svg $out/max_residuals.svg
+                        cp all_residuals.svg $out/all_residuals.svg
                     '';
                 };
 

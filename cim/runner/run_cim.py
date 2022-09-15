@@ -25,7 +25,7 @@ def run(ty, points, radius, matrices, output):
     os.system(f'CIMUSE_{ty} -p {num_points} -r {radius} -t poly {input_args} -o {output}/{points}/{ty} -cr 0.0 -ci 0.0')
     return f'{ty} finished'
 
-for ty in ['Float', 'Double', 'LongDouble', 'Posit162', 'Posit322', 'Posit644']:
+for ty in ['Float', 'Double', 'LongDouble', 'Posit16', 'Posit32', 'Posit64']:
     # if 'Posit' in ty: continue
     for num_points in range(3, 1000):
         # after 50: only do every second
