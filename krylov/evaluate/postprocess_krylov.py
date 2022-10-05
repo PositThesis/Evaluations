@@ -70,6 +70,9 @@ for s_idx, solver in enumerate(['GMRES', 'QMR', 'QMRWLA']):
                     if data.iloc[idx, 2] < 1e-3:
                         data.iloc[idx, 2] = float('nan')
 
+            # remove negative residuals. these are inserted when we skip certain iterations
+            data = data.loc[data.loc[:, 'residual'] >= 0, :]
+
             print(f'plotting {num}, {solver}')
             alpha = 0.5 if solver == 'GMRES' else 1
             iter_ax.plot(data.iloc[start_idx:, 1], data.iloc[start_idx:, 2], 1.0, label = "", color=color, linestyle='-', alpha=alpha)
