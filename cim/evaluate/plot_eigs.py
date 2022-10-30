@@ -6,6 +6,7 @@ import math
 import numpy as np
 import re
 import argparse
+import pandas as pd
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', dest='input', action='store', required = True)
@@ -42,31 +43,47 @@ def read_mtx(filename):
 step_size = 0.01
 
 ref_data = read_mtx(args.reference)
-cim_data = read_mtx(args.input)
+try:
+    cim_data = read_mtx(args.input)
 
-plt.plot(
-    ref_data.real,
-    ref_data.imag,
-    linestyle = '',
-    marker = 'o'
-)
-plt.plot(
-    cim_data.real,
-    cim_data.imag,
-    linestyle = '',
-    marker = 'x'
-)
+    print(cim_data)
 
-radius = args.radius
-center = complex(0, 0)
+    pd.DataFrame({'real': ref_data.real.flatten(), 'imag': ref_data.imag.flatten()}).to_csv('reference.csv')
+    pd.DataFrame({'real': cim_data.real.flatten(), 'imag': cim_data.imag.flatten()}).to_csv('cim.csv')
+except: pass
 
-plt.plot(
-    [radius*math.cos(phi) + center.real for phi in np.arange(0, 2*math.pi, step_size)],
-    [radius*math.sin(phi) + center.imag for phi in np.arange(0, 2*math.pi, step_size)],
-    linestyle = ':'
-)
+#fig, ax = plt.subplots(figsize=(6,6), dpi = 66)
 
-plt.xlim([-2, 2])
-plt.ylim([-2, 2])
+#ax.plot(
+    #ref_data.real,
+    #ref_data.imag,
+    #linestyle = '',
+    #marker = 'o',
+    #label = 'Eigenvalues by Octave'
+#)
+#ax.plot(
+    #cim_data.real,
+    #cim_data.imag,
+    #linestyle = '',
+    #marker = 'x',
+    #label = 'Eigenvalues by Contour Integral Method'
+#)
 
-plt.savefig(args.output)
+#radius = args.radius
+#center = complex(0, 0)
+
+#ax.plot(
+    #[radius*math.cos(phi) + center.real for phi in np.arange(0, 2*math.pi, step_size)],
+    #[radius*math.sin(phi) + center.imag for phi in np.arange(0, 2*math.pi, step_size)],
+    #linestyle = ':',
+    #label = 'Contour'
+#)
+
+#ax.set_xlim([-2, 2])
+#ax.set_ylim([-2, 2])
+#ax.set_xlabel('Real')
+#ax.set_ylabel('Imaginary')
+#ax.legend()
+#fig.tight_layout()
+
+#fig.savefig(args.output)

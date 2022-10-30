@@ -26,47 +26,56 @@
         let
             pkgs = nixpkgs.legacyPackages.${system};
             python = pkgs.python3.withPackages(p: with p; [ numpy pandas matplotlib ]);
-            makeRunner = {ty, algorithm, params, inputs}: pkgs.stdenv.mkDerivation {
-                name = algorithm+ty;
-                src = ./krylov/runner;
-                        
-                nativeBuildInputs = [ manual_krylov.packages.${system}.solvers ];
-                buildInputs = [];
-                        
-                buildPhase = ''
-                    mkdir -p output
-                    ls ${inputs}
-                    ${ty}${algorithm} -im ${inputs}/mat.mtx -iv ${inputs}/vec.vec ${params} -o output/${algorithm}_${ty}
-                '';
-                    
-                installPhase = ''
-                    mkdir -p $out/
-                    cp output/* $out
-                '';
+            timeout = builtins.toString (3*3600);
+            makeRunner = {ty, algorithm, params, inputs, use_fdp}:
+                let
+                    binary = if (use_fdp) then
+                        "${ty}${algorithm}"
+                    else "${ty}${algorithm}_no_fdp";
+                    output = if (use_fdp) then
+                        "${ty}_${algorithm}"
+                    else "${ty}_${algorithm}_no_fdp";
+                in
+                pkgs.stdenv.mkDerivation {
+                    name = algorithm+ty;
+                    src = ./krylov/runner;
+
+                    nativeBuildInputs = [ manual_krylov.packages.${system}.solvers ];
+                    buildInputs = [];
+
+                    buildPhase = ''
+                        mkdir -p output
+                        ${binary} -im ${inputs}/mat.mtx -iv ${inputs}/vec.vec ${params} -o output/${output} -timeout ${timeout}
+                    '';
+
+                    installPhase = ''
+                        mkdir -p $out/
+                        cp output/* $out
+                    '';
+                };
+            GMRESRunners = {params, inputs, use_fdp}: {
+                Float = makeRunner { ty ="Float"; algorithm = "GMRES"; inherit params; inherit inputs; use_fdp = true; };
+                Double = makeRunner { ty ="Double"; algorithm = "GMRES"; inherit params; inherit inputs; use_fdp = true; };
+                LongDouble = makeRunner { ty ="LongDouble"; algorithm = "GMRES"; inherit params; inherit inputs; use_fdp = true; };
+                Posit16 = makeRunner { ty ="Posit16"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp; };
+                Posit32 = makeRunner { ty ="Posit32"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp; };
+                Posit64 = makeRunner { ty ="Posit64"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp; };
             };
-            GMRESRunners = {params, inputs}: {
-                Float = makeRunner { ty ="Float"; algorithm = "GMRES"; inherit params; inherit inputs; };
-                Double = makeRunner { ty ="Double"; algorithm = "GMRES"; inherit params; inherit inputs; };
-                LongDouble = makeRunner { ty ="LongDouble"; algorithm = "GMRES"; inherit params; inherit inputs; };
-                Posit16 = makeRunner { ty ="Posit16"; algorithm = "GMRES"; inherit params; inherit inputs; };
-                Posit32 = makeRunner { ty ="Posit32"; algorithm = "GMRES"; inherit params; inherit inputs; };
-                Posit64 = makeRunner { ty ="Posit64"; algorithm = "GMRES"; inherit params; inherit inputs; };
+            QMRRunners = {params, inputs, use_fdp}: {
+                Float = makeRunner { ty ="Float"; algorithm = "QMR"; inherit params; inherit inputs; use_fdp = true; };
+                Double = makeRunner { ty ="Double"; algorithm = "QMR"; inherit params; inherit inputs; use_fdp = true; };
+                LongDouble = makeRunner { ty ="LongDouble"; algorithm = "QMR"; inherit params; inherit inputs; use_fdp = true; };
+                Posit16 = makeRunner { ty ="Posit16"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp; };
+                Posit32 = makeRunner { ty ="Posit32"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp; };
+                Posit64 = makeRunner { ty ="Posit64"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp; };
             };
-            QMRRunners = {params, inputs}: {
-                Float = makeRunner { ty ="Float"; algorithm = "QMR"; inherit params; inherit inputs; };
-                Double = makeRunner { ty ="Double"; algorithm = "QMR"; inherit params; inherit inputs; };
-                LongDouble = makeRunner { ty ="LongDouble"; algorithm = "QMR"; inherit params; inherit inputs; };
-                Posit16 = makeRunner { ty ="Posit16"; algorithm = "QMR"; inherit params; inherit inputs; };
-                Posit32 = makeRunner { ty ="Posit32"; algorithm = "QMR"; inherit params; inherit inputs; };
-                Posit64 = makeRunner { ty ="Posit64"; algorithm = "QMR"; inherit params; inherit inputs; };
-            };
-            QMRWLARunners = {params, inputs}: {
-                Float = makeRunner { ty ="Float"; algorithm = "QMRWLA"; inherit params; inherit inputs; };
-                Double = makeRunner { ty ="Double"; algorithm = "QMRWLA"; inherit params; inherit inputs; };
-                LongDouble = makeRunner { ty ="LongDouble"; algorithm = "QMRWLA"; inherit params; inherit inputs; };
-                Posit16 = makeRunner { ty ="Posit16"; algorithm = "QMRWLA"; inherit params; inherit inputs; };
-                Posit32 = makeRunner { ty ="Posit32"; algorithm = "QMRWLA"; inherit params; inherit inputs; };
-                Posit64 = makeRunner { ty ="Posit64"; algorithm = "QMRWLA"; inherit params; inherit inputs; };
+            QMRWLARunners = {params, inputs, use_fdp}: {
+                Float = makeRunner { ty ="Float"; algorithm = "QMRWLA"; inherit params; inherit inputs; use_fdp = true; };
+                Double = makeRunner { ty ="Double"; algorithm = "QMRWLA"; inherit params; inherit inputs; use_fdp = true; };
+                LongDouble = makeRunner { ty ="LongDouble"; algorithm = "QMRWLA"; inherit params; inherit inputs; use_fdp = true; };
+                Posit16 = makeRunner { ty ="Posit16"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp; };
+                Posit32 = makeRunner { ty ="Posit32"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp; };
+                Posit64 = makeRunner { ty ="Posit64"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp; };
             };
             runMatrixAlgorithm = {name, runners}: pkgs.stdenv.mkDerivation {
                 name = name;
@@ -83,7 +92,167 @@
                     cp ${runners.Posit32}/* $out
                     cp ${runners.Posit64}/* $out
                 '';
-
+            };
+            
+            GMRESNBitsVariationRunners = {params, inputs, use_fdp}: {
+                P16 = makeRunner { ty ="Posit16"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P20 = makeRunner { ty ="Posit20"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P24 = makeRunner { ty ="Posit24"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P28 = makeRunner { ty ="Posit28"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P32 = makeRunner { ty ="Posit32"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P36 = makeRunner { ty ="Posit36"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P40 = makeRunner { ty ="Posit40"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P44 = makeRunner { ty ="Posit44"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P48 = makeRunner { ty ="Posit48"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P52 = makeRunner { ty ="Posit52"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P56 = makeRunner { ty ="Posit56"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P60 = makeRunner { ty ="Posit60"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P64 = makeRunner { ty ="Posit64"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P68 = makeRunner { ty ="Posit68"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P72 = makeRunner { ty ="Posit72"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P76 = makeRunner { ty ="Posit76"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P80 = makeRunner { ty ="Posit80"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+            };
+            QMRNBitsVariationRunners = {params, inputs, use_fdp}: {
+                P16 = makeRunner { ty ="Posit16"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P20 = makeRunner { ty ="Posit20"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P24 = makeRunner { ty ="Posit24"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P28 = makeRunner { ty ="Posit28"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P32 = makeRunner { ty ="Posit32"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P36 = makeRunner { ty ="Posit36"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P40 = makeRunner { ty ="Posit40"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P44 = makeRunner { ty ="Posit44"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P48 = makeRunner { ty ="Posit48"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P52 = makeRunner { ty ="Posit52"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P56 = makeRunner { ty ="Posit56"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P60 = makeRunner { ty ="Posit60"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P64 = makeRunner { ty ="Posit64"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P68 = makeRunner { ty ="Posit68"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P72 = makeRunner { ty ="Posit72"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P76 = makeRunner { ty ="Posit76"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P80 = makeRunner { ty ="Posit80"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+            };
+            QMRWLANBitsVariationRunners = {params, inputs, use_fdp}: {
+                P16 = makeRunner { ty ="Posit16"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P20 = makeRunner { ty ="Posit20"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P24 = makeRunner { ty ="Posit24"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P28 = makeRunner { ty ="Posit28"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P32 = makeRunner { ty ="Posit32"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P36 = makeRunner { ty ="Posit36"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P40 = makeRunner { ty ="Posit40"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P44 = makeRunner { ty ="Posit44"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P48 = makeRunner { ty ="Posit48"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P52 = makeRunner { ty ="Posit52"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P56 = makeRunner { ty ="Posit56"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P60 = makeRunner { ty ="Posit60"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P64 = makeRunner { ty ="Posit64"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P68 = makeRunner { ty ="Posit68"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P72 = makeRunner { ty ="Posit72"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P76 = makeRunner { ty ="Posit76"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P80 = makeRunner { ty ="Posit80"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+            };
+            runNBitsVariation = {name, runners}: pkgs.stdenv.mkDerivation {
+                name = name;
+                unpackPhase = "true";
+                buildPhase = "true";
+                
+                installPhase = ''
+                    mkdir $out
+                    cp ${runners.P16}/* $out
+                    cp ${runners.P20}/* $out
+                    cp ${runners.P24}/* $out
+                    cp ${runners.P28}/* $out
+                    cp ${runners.P32}/* $out
+                    cp ${runners.P36}/* $out
+                    cp ${runners.P40}/* $out
+                    cp ${runners.P44}/* $out
+                    cp ${runners.P48}/* $out
+                    cp ${runners.P52}/* $out
+                    cp ${runners.P56}/* $out
+                    cp ${runners.P60}/* $out
+                    cp ${runners.P64}/* $out
+                    cp ${runners.P68}/* $out
+                    cp ${runners.P72}/* $out
+                    cp ${runners.P76}/* $out
+                    cp ${runners.P80}/* $out
+                '';
+            };
+            
+            
+            GMRESESVariationRunners = {params, inputs, use_fdp}: {
+                P160 = makeRunner { ty ="Posit160"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P161 = makeRunner { ty ="Posit161"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P162 = makeRunner { ty ="Posit162"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P163 = makeRunner { ty ="Posit163"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P164 = makeRunner { ty ="Posit164"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P320 = makeRunner { ty ="Posit320"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P321 = makeRunner { ty ="Posit321"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P322 = makeRunner { ty ="Posit322"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P323 = makeRunner { ty ="Posit323"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P324 = makeRunner { ty ="Posit324"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P640 = makeRunner { ty ="Posit640"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P641 = makeRunner { ty ="Posit641"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P642 = makeRunner { ty ="Posit642"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P643 = makeRunner { ty ="Posit643"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+                P644 = makeRunner { ty ="Posit644"; algorithm = "GMRES"; inherit params; inherit inputs; inherit use_fdp;  };
+            };
+            QMRESVariationRunners = {params, inputs, use_fdp}: {
+                P160 = makeRunner { ty ="Posit160"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P161 = makeRunner { ty ="Posit161"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P162 = makeRunner { ty ="Posit162"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P163 = makeRunner { ty ="Posit163"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P164 = makeRunner { ty ="Posit164"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P320 = makeRunner { ty ="Posit320"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P321 = makeRunner { ty ="Posit321"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P322 = makeRunner { ty ="Posit322"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P323 = makeRunner { ty ="Posit323"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P324 = makeRunner { ty ="Posit324"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P640 = makeRunner { ty ="Posit640"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P641 = makeRunner { ty ="Posit641"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P642 = makeRunner { ty ="Posit642"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P643 = makeRunner { ty ="Posit643"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+                P644 = makeRunner { ty ="Posit644"; algorithm = "QMR"; inherit params; inherit inputs; inherit use_fdp;  };
+            };
+            QMRWLAESVariationRunners = {params, inputs, use_fdp}: {
+                P160 = makeRunner { ty ="Posit160"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P161 = makeRunner { ty ="Posit161"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P162 = makeRunner { ty ="Posit162"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P163 = makeRunner { ty ="Posit163"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P164 = makeRunner { ty ="Posit164"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P320 = makeRunner { ty ="Posit320"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P321 = makeRunner { ty ="Posit321"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P322 = makeRunner { ty ="Posit322"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P323 = makeRunner { ty ="Posit323"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P324 = makeRunner { ty ="Posit324"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P640 = makeRunner { ty ="Posit640"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P641 = makeRunner { ty ="Posit641"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P642 = makeRunner { ty ="Posit642"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P643 = makeRunner { ty ="Posit643"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+                P644 = makeRunner { ty ="Posit644"; algorithm = "QMRWLA"; inherit params; inherit inputs; inherit use_fdp;  };
+            };
+            runESVariation = {name, runners}: pkgs.stdenv.mkDerivation {
+                name = name;
+                unpackPhase = "true";
+                buildPhase = "true";
+                
+                installPhase = ''
+                    mkdir $out
+                    cp ${runners.P160}/* $out
+                    cp ${runners.P161}/* $out
+                    cp ${runners.P162}/* $out
+                    cp ${runners.P163}/* $out
+                    cp ${runners.P164}/* $out
+                    cp ${runners.P320}/* $out
+                    cp ${runners.P321}/* $out
+                    cp ${runners.P322}/* $out
+                    cp ${runners.P323}/* $out
+                    cp ${runners.P324}/* $out
+                    cp ${runners.P640}/* $out
+                    cp ${runners.P641}/* $out
+                    cp ${runners.P642}/* $out
+                    cp ${runners.P643}/* $out
+                    cp ${runners.P644}/* $out
+                '';
             };
         in
         rec {
@@ -121,6 +290,7 @@
 
                         mkdir output
 
+
                         python run_cim.py -i complex20A.mtx -i complex20B.mtx -i complex20C.mtx -o output -r 0.6
                     '';
 
@@ -156,12 +326,16 @@
 
                     installPhase = ''
                         mkdir -p $out/{inputs,data}
-                        cp -riva ${packages.run_cim}/inputs $out/inputs
-                        cp -riva ${packages.run_cim}/data $out/data
+                        cp -riva inputs $out/inputs
+                        cp -riva data $out/data
                         cp octave_eigs.mtx $out/octave_eigs.mtx
-                        cp eigs.svg $out/eigs.svg
-                        cp max_residuals.svg $out/max_residuals.svg
-                        cp all_residuals.svg $out/all_residuals.svg
+                        # cp eigs.svg $out/eigs.svg
+                        # cp max_residuals.svg $out/max_residuals.svg
+                        # cp all_residuals.svg $out/all_residuals.svg
+
+                        cp reference.csv $out/reference_eigs.csv
+                        cp cim_residuals_*.csv $out
+                        cp cim.csv $out/cim_eigs.csv
                     '';
                 };
 
@@ -173,14 +347,14 @@
                     nativeBuildInputs = [python];
 
                     buildPhase = ''
-                        python ${packages.shared_tools}/make_random_matrix.py --rows 40 --cols 40 -s 1 -m 2 -o random40.mtx
-                        python ${packages.shared_tools}/make_random_matrix.py --rows 40 --cols 1 -s 2 -m 2 -o random40.vec
+                        python ${packages.shared_tools}/make_random_matrix.py --rows 400 --cols 400 -s 1 -m 2 -o random1000.mtx -band 6
+                        python ${packages.shared_tools}/make_random_matrix.py --rows 400 --cols 1 -s 2 -m 2 -o random1000.vec
                     '';
 
                     installPhase = ''
                         mkdir $out
-                        cp random40.mtx $out/mat.mtx
-                        cp random40.vec $out/vec.vec
+                        cp random1000.mtx $out/mat.mtx
+                        cp random1000.vec $out/vec.vec
                     '';
                 };
 
@@ -202,119 +376,234 @@
                     '';
                 };
 
-                eval_krylov2 = pkgs.stdenv.mkDerivation {
-                    name = "KrylovEvaluator";
+                eval_krylov_nbits = pkgs.stdenv.mkDerivation {
+                    name = "KrylovEvaluator NBits";
                     src = krylov/evaluate;
 
                     nativeBuildInputs = [python];
 
                     buildPhase = ''
                         mkdir data_random
-                        cp ${runMatrixAlgorithm {name = "Random"; runners=GMRESRunners{inputs=packages.krylov_random_inputs; params = "-iters 200 -hh";};}}/* data_random
-                        cp ${runMatrixAlgorithm {name = "Random"; runners=QMRRunners{inputs=packages.krylov_random_inputs; params = "-iters 200 -hh";};}}/* data_random
-                        cp ${runMatrixAlgorithm {name = "Random"; runners=QMRWLARunners{inputs=packages.krylov_random_inputs; params = "-iters 200 -hh";};}}/* data_random
+                        cp ${runNBitsVariation {name = "Random"; runners=GMRESNBitsVariationRunners{inputs=packages.krylov_random_inputs; params = "-iters 200 -hh"; use_fdp = true; };}}/* data_random
+                        cp ${runNBitsVariation {name = "Random"; runners=QMRNBitsVariationRunners{inputs=packages.krylov_random_inputs; params = "-iters 200 -hh"; use_fdp = true; };}}/* data_random
+                        cp ${runNBitsVariation {name = "Random"; runners=QMRWLANBitsVariationRunners{inputs=packages.krylov_random_inputs; params = "-iters 200 -hh"; use_fdp = true; };}}/* data_random
+                        sed -i 's/nar/nan/g' data_random/QMRWLA_Posit16.csv || true
 
                         mkdir plots_random
                         python postprocess_krylov.py -i data_random -o plots_random -max_iter 200 -tol 1e-80
 
-                        mkdir data_sherman
-                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=QMRRunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -hh -sparse -precond";};}}/* data_sherman
-                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=QMRWLARunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -hh -sparse -precond";};}}/* data_sherman
-                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=GMRESRunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -hh -sparse -restart 30 -precond";};}}/* data_sherman
-
-                        mkdir plots_sherman
-                        python postprocess_krylov.py -i data_sherman -o plots_sherman -max_iter 4000 -tol 1e-80
-
                         mkdir data_random_arnoldi
-                        cp ${runMatrixAlgorithm {name = "Random"; runners=GMRESRunners{inputs=packages.krylov_random_inputs; params = "-iters 200";};}}/* data_random_arnoldi
+                        cp ${runNBitsVariation {name = "Random"; runners=GMRESNBitsVariationRunners{inputs=packages.krylov_random_inputs; params = "-iters 200"; use_fdp = true; };}}/* data_random_arnoldi
 
                         mkdir plots_random_arnoldi
                         python postprocess_krylov.py -i data_random_arnoldi -o plots_random_arnoldi -max_iter 200 -tol 1e-80
+                    '';
 
-                        mkdir data_sherman_arnoldi
-                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=GMRESRunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -sparse -restart 30 -precond";};}}/* data_sherman_arnoldi
+                    installPhase = ''
+                        mkdir -p $out/{random,random_arnoldi}
+                        mkdir -p $out/data/{random,random_arnoldi}
+                        cp plots_random/* $out/random
+                        cp plots_random_arnoldi/* $out/random_arnoldi
 
-                        mkdir plots_sherman_arnoldi
-                        python postprocess_krylov.py -i data_sherman_arnoldi -o plots_sherman_arnoldi -max_iter 4000 -tol 1e-80
+                        cp data_random/* $out/data/random
+                        cp data_random_arnoldi/* $out/data/random_arnoldi
+                    '';
+                };
 
+                eval_krylov_es = pkgs.stdenv.mkDerivation {
+                    name = "KrylovEvaluator ES";
+                    src = krylov/evaluate;
+
+                    nativeBuildInputs = [python];
+
+
+                    buildPhase = ''
+                        mkdir data_random
+                        cp ${runESVariation {name = "Random"; runners=GMRESESVariationRunners{inputs=packages.krylov_random_inputs; params = "-iters 200 -hh"; use_fdp = true; };}}/* data_random
+                        cp ${runESVariation {name = "Random"; runners=QMRESVariationRunners{inputs=packages.krylov_random_inputs; params = "-iters 200 -hh"; use_fdp = true; };}}/* data_random
+                        cp ${runESVariation {name = "Random"; runners=QMRWLAESVariationRunners{inputs=packages.krylov_random_inputs; params = "-iters 200 -hh"; use_fdp = true; };}}/* data_random
+
+                        mkdir plots_random
+                        python postprocess_krylov.py -i data_random -o plots_random -max_iter 200 -tol 1e-80
+
+                        mkdir data_random_arnoldi
+                        cp ${runESVariation {name = "Random"; runners=GMRESESVariationRunners{inputs=packages.krylov_random_inputs; params = "-iters 200"; use_fdp = true; };}}/* data_random_arnoldi
+
+                        mkdir plots_random_arnoldi
+                        python postprocess_krylov.py -i data_random_arnoldi -o plots_random_arnoldi -max_iter 200 -tol 1e-80
 
                         # space for additional analyses
                     '';
 
                     installPhase = ''
-                        mkdir -p $out/{random40,sherman5}
+                        mkdir -p $out/{random40,random_arnoldi}
+                        mkdir -p $out/data/{random40,random_arnoldi}
                         cp plots_random/* $out/random40
-                        cp plots_sherman/* $out/sherman5
+                        cp plots_random_arnoldi/* $out/random_arnoldi
+
+                        cp data_random/* $out/data/random40
+                        cp data_random_arnoldi/* $out/data/random_arnoldi
                     '';
                 };
 
-                run_krylov = pkgs.stdenv.mkDerivation {
-                    name = "KrylovRunner";
-                    src = ./krylov/runner;
+                eval_krylov_sherman = pkgs.stdenv.mkDerivation {
+                    name = "KrylovShermanEvaluator";
+                    src = krylov/evaluate;
 
-                    nativeBuildInputs = [
-                        python
-                        # krylov.packages.${system}.solvers
-                        manual_krylov.packages.${system}.solvers
-                        packages.shared_tools
-                    ];
+                    nativeBuildInputs = [python];
 
                     buildPhase = ''
-                        python ${packages.shared_tools}/make_random_matrix.py --rows 40 --cols 40 -s 1 -m 2 -o random40.mtx
-                        python ${packages.shared_tools}/make_random_matrix.py --rows 40 --cols 1 -s 2 -m 2 -o random40.vec
-                        python ${packages.shared_tools}/make_random_matrix.py --rows 3312 --cols 1 -s 3 -m 2 -o sherman5.vec
+                        mkdir -p data_sherman/{GMRES,QMR,QMRWLA}
+                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=GMRESRunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -hh -sparse -restart 30 -precond"; use_fdp = true;};}}/* data_sherman/GMRES
+                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=QMRRunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -hh -sparse -precond"; use_fdp = true;};}}/* data_sherman/QMR
+                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=QMRWLARunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -hh -sparse -precond"; use_fdp = true;};}}/* data_sherman/QMRWLA
 
-                        mkdir -p output/random40
-                        mkdir -p output/sherman5
+                        mkdir -p plots_sherman/{GMRES,QMR,QMRWLA}
+                        python postprocess_krylov.py -i data_sherman/GMRES -o plots_sherman/GMRES -max_iter 1500 -tol 1e-80
+                        python postprocess_krylov.py -i data_sherman/QMR -o plots_sherman/QMR -max_iter 400 -tol 1e-80
+                        python postprocess_krylov.py -i data_sherman/QMRWLA -o plots_sherman/QMRWLA -max_iter 250 -tol 1e-80
 
-                        echo "Running random matrix"
-                        # python run_krylov.py -im random40.mtx -iv random40.vec -o output/random40 -tol 1e-80 -max_iter 100 -restart -1
-                        python run_custom_krylov.py -im random40.mtx -iv random40.vec -o output/random40 -iters 100 -hh
+                        # cp plots_sherman/GMRES/GMRES.{png,svg} plots_sherman
+                        # cp plots_sherman/QMR/QMR.{png,svg} plots_sherman
+                        # cp plots_sherman/QMRWLA/QMRWLA.{png,svg} plots_sherman
 
-                        echo "Running sherman5 matrix"
-                        # python run_krylov.py -im sherman5.mtx -iv sherman5.vec -o output/sherman5 -max_iter 4000 -restart 30 -tol 1e-80
-                        python run_custom_krylov.py -im sherman5.mtx -iv sherman5.vec -o output/sherman5 -iters 100 -hh -sparse
+                        mkdir data_sherman_arnoldi
+                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=GMRESRunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -sparse -restart 30 -precond"; use_fdp = true;};}}/* data_sherman_arnoldi
+
+                        mkdir plots_sherman_arnoldi
+                        python postprocess_krylov.py -i data_sherman_arnoldi -o plots_sherman_arnoldi -max_iter 4000 -tol 1e-80
                     '';
 
                     installPhase = ''
-                        mkdir -p $out/{data,inputs}
-                        cp -riva output $out/data
-                        cp random40.{mtx,vec} $out/inputs
-                        cp sherman5.{mtx,vec} $out/inputs
+                        mkdir -p $out/{sherman5,sherman5_arnoldi}
+                        mkdir -p $out/data/{sherman5,sherman5_arnoldi}
+                        # cp -r plots_sherman/* $out/sherman5
+                        # cp plots_sherman_arnoldi/* $out/sherman5_arnoldi
+
+                        cp -r data_sherman/* $out/data/sherman5
+                        cp data_sherman_arnoldi/* $out/data/sherman5_arnoldi
+                    '';
+                };
+
+                eval_krylov_random = pkgs.stdenv.mkDerivation {
+                    name = "KrylovRandomEvaluator";
+                    src = krylov/evaluate;
+
+                    nativeBuildInputs = [python];
+
+                    buildPhase = ''
+                        mkdir data_random
+                        cp ${runMatrixAlgorithm {name = "Random"; runners=GMRESRunners{inputs=packages.krylov_random_inputs; params = "-iters 500 -sparse -hh"; use_fdp=true;};}}/* data_random
+                        cp ${runMatrixAlgorithm {name = "Random"; runners=QMRRunners{inputs=packages.krylov_random_inputs; params = "-iters 500 -sparse -hh";use_fdp=true;};}}/* data_random
+                        cp ${runMatrixAlgorithm {name = "Random"; runners=QMRWLARunners{inputs=packages.krylov_random_inputs; params = "-iters 500 -sparse -hh";use_fdp=true;};}}/* data_random
+
+                        mkdir plots_random
+                        python postprocess_krylov.py -i data_random -o plots_random -max_iter 500 -tol 1e-80
+
+                        mkdir data_random_arnoldi
+                        cp ${runMatrixAlgorithm {name = "Random"; runners=GMRESRunners{inputs=packages.krylov_random_inputs; params = "-iters 500 -sparse";use_fdp=true;};}}/* data_random_arnoldi
+
+                        mkdir plots_random_arnoldi
+                        python postprocess_krylov.py -i data_random_arnoldi -o plots_random_arnoldi -max_iter 500 -tol 1e-80
+                    '';
+
+                    installPhase = ''
+                        mkdir -p $out/{random,random_arnoldi}
+                        mkdir -p $out/data/{random,random_arnoldi}
+                        cp plots_random/* $out/random
+                        cp plots_random_arnoldi/* $out/random_arnoldi
+
+                        cp data_random/* $out/data/random
+                        cp data_random_arnoldi/* $out/data/random_arnoldi
+                    '';
+                };
+
+
+                eval_krylov_sherman_no_fdp = pkgs.stdenv.mkDerivation {
+                    name = "KrylovShermanEvaluator";
+                    src = krylov/evaluate;
+
+                    nativeBuildInputs = [python];
+
+                    buildPhase = ''
+                        mkdir -p data_sherman/{GMRES,QMR,QMRWLA}
+                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=GMRESRunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -hh -sparse -restart 30 -precond"; use_fdp = false;};}}/* data_sherman/GMRES
+                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=QMRRunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -hh -sparse -precond"; use_fdp = false;};}}/* data_sherman/QMR
+                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=QMRWLARunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -hh -sparse -precond"; use_fdp = false;};}}/* data_sherman/QMRWLA
+
+                        mkdir -p plots_sherman/{GMRES,QMR,QMRWLA}
+                        python postprocess_krylov.py -i data_sherman/GMRES -o plots_sherman/GMRES -max_iter 1500 -tol 1e-80
+                        python postprocess_krylov.py -i data_sherman/QMR -o plots_sherman/QMR -max_iter 400 -tol 1e-80
+                        python postprocess_krylov.py -i data_sherman/QMRWLA -o plots_sherman/QMRWLA -max_iter 250 -tol 1e-80
+
+                        # cp plots_sherman/GMRES/GMRES.{png,svg} plots_sherman
+                        # cp plots_sherman/QMR/QMR.{png,svg} plots_sherman
+                        # cp plots_sherman/QMRWLA/QMRWLA.{png,svg} plots_sherman
+
+                        mkdir data_sherman_arnoldi
+                        cp ${runMatrixAlgorithm {name = "Sherman"; runners=GMRESRunners{inputs=packages.krylov_sherman_inputs; params = "-iters 4000 -sparse -restart 30 -precond"; use_fdp = false;};}}/* data_sherman_arnoldi
+
+                        mkdir plots_sherman_arnoldi
+                        python postprocess_krylov.py -i data_sherman_arnoldi -o plots_sherman_arnoldi -max_iter 4000 -tol 1e-80
+                    '';
+
+                    installPhase = ''
+                        mkdir -p $out/{sherman5,sherman5_arnoldi}
+                        mkdir -p $out/data/{sherman5,sherman5_arnoldi}
+                        # cp -r plots_sherman/* $out/sherman5
+                        # cp plots_sherman_arnoldi/* $out/sherman5_arnoldi
+
+                        cp -r data_sherman/* $out/data/sherman5
+                        cp data_sherman_arnoldi/* $out/data/sherman5_arnoldi
+                    '';
+                };
+
+                eval_krylov_random_no_fdp = pkgs.stdenv.mkDerivation {
+                    name = "KrylovRandomEvaluator";
+                    src = krylov/evaluate;
+
+                    nativeBuildInputs = [python];
+
+                    buildPhase = ''
+                        mkdir data_random
+                        cp ${runMatrixAlgorithm {name = "Random"; runners=GMRESRunners{inputs=packages.krylov_random_inputs; params = "-iters 500 -sparse -hh"; use_fdp=false;};}}/* data_random
+                        cp ${runMatrixAlgorithm {name = "Random"; runners=QMRRunners{inputs=packages.krylov_random_inputs; params = "-iters 500 -sparse -hh";use_fdp=false;};}}/* data_random
+                        cp ${runMatrixAlgorithm {name = "Random"; runners=QMRWLARunners{inputs=packages.krylov_random_inputs; params = "-iters 500 -sparse -hh";use_fdp=false;};}}/* data_random
+
+                        mkdir plots_random
+                        python postprocess_krylov.py -i data_random -o plots_random -max_iter 500 -tol 1e-80
+
+                        mkdir data_random_arnoldi
+                        cp ${runMatrixAlgorithm {name = "Random"; runners=GMRESRunners{inputs=packages.krylov_random_inputs; params = "-iters 500 -sparse";use_fdp=false;};}}/* data_random_arnoldi
+
+                        mkdir plots_random_arnoldi
+                        python postprocess_krylov.py -i data_random_arnoldi -o plots_random_arnoldi -max_iter 500 -tol 1e-80
+                    '';
+
+                    installPhase = ''
+                        mkdir -p $out/{random,random_arnoldi}
+                        mkdir -p $out/data/{random,random_arnoldi}
+                        cp plots_random/* $out/random
+                        cp plots_random_arnoldi/* $out/random_arnoldi
+
+                        cp data_random/* $out/data/random
+                        cp data_random_arnoldi/* $out/data/random_arnoldi
                     '';
                 };
 
                 eval_krylov = pkgs.stdenv.mkDerivation {
-                    name = "KrylovEvaluator";
-                    src = ./krylov/evaluate;
-
-                    nativeBuildInputs = [
-                        python
-                    ];
-
-                    buildInputs = [
-                        python
-                        packages.run_krylov
-                    ];
-
-                    buildPhase = ''
-                        cp -riva ${packages.run_krylov}/inputs inputs
-                        cp -riva ${packages.run_krylov}/data data
-
-                        mkdir -p plots/random40
-                        mkdir -p plots/sherman5
-
-                        ls data/output/sherman5
-
-                        python postprocess_krylov.py -i data/output/random40 -o plots/random40 -max_iter 100 -tol 1e-80
-                        python postprocess_krylov.py -i data/output/sherman5 -o plots/sherman5 -max_iter 100 -tol 1e-80
-                    '';
+                    name = "KrylovEvaluation";
+                    unpackPhase = "true";
+                    buildPhase = "true";
 
                     installPhase = ''
-                        mkdir -p $out/{inputs,data}
-                        cp -riva ${packages.run_krylov}/inputs $out/inputs
-                        cp -riva ${packages.run_krylov}/data $out/data
-                        cp -riva plots/ $out/plots/
+                        mkdir -p $out/{random,sherman}
+                        mkdir $out/random/{fdp,no_fdp}
+                        mkdir $out/sherman/{fdp,no_fdp}
+                        cp -r ${packages.eval_krylov_random}/* $out/random/fdp
+                        cp -r ${packages.eval_krylov_sherman}/* $out/sherman/fdp
+                        cp -r ${packages.eval_krylov_random_no_fdp}/* $out/random/no_fdp
+                        cp -r ${packages.eval_krylov_sherman_no_fdp}/* $out/sherman/no_fdp
                     '';
                 };
 
@@ -331,19 +620,19 @@
 
                     installPhase = ''
                         mkdir -p $out/{cim,krylov}
-                        cp -riva ${packages.eval_cim}/ $out/cim
-                        cp -riva ${packages.eval_krylov}/ $out/krylov
+                        cp -riva ${packages.eval_cim}/* $out/cim
+                        cp -riva ${packages.eval_krylov}/* $out/krylov
                     '';
                 };
             };
 
-            defaultPackage = packages.eval_krylov2;
+            defaultPackage = packages.eval_krylov;
 
 
             devShell = pkgs.mkShell {
                 buildInputs = [
-                    manual_krylov.packages.${system}.solvers
-                    cim.packages.${system}.cim
+                    #manual_krylov.packages.${system}.solvers
+                    #cim.packages.${system}.cim
                     python
                 ];
 
