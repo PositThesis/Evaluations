@@ -5,21 +5,17 @@
     nixpkgs.url = "github:NixOS/nixpkgs/release-22.05";
     eigen_integrations.url = "git+http://10.0.0.1:3000/aethan/EigenPositIntegration";
     cim = {
-        url = "git+http://10.0.0.1:3000/aethan/ContourIntegralMethod";
-        inputs.online_lib.follows = "eigen_integrations";
-    };
-    krylov = {
-        url = "git+http://10.0.0.1:3000/aethan/KrylovSolvers";
+        url = "github:PositThesis/ContourIntegralMethod";
         inputs.online_lib.follows = "eigen_integrations";
     };
     manual_krylov = {
-        url = "git+http://10.0.0.1:3000/aethan/ManualSolvers";
+        url = "github:PositThesis/CustomSolvers";
         inputs.online_lib.follows = "eigen_integrations";
     };
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, eigen_integrations, cim, krylov, manual_krylov, flake-utils }:
+  outputs = { self, nixpkgs, eigen_integrations, cim, manual_krylov, flake-utils }:
     let
       # wrap this in another let .. in to add the hydra job only for a single architecture
       output_set = flake-utils.lib.eachDefaultSystem (system:

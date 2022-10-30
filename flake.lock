@@ -9,17 +9,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1666814553,
-        "narHash": "sha256-ic+VUvbhSsu2eVCmvC7hA8BjNUz6n0WcMdSn9NUKpAI=",
-        "ref": "master",
-        "rev": "7e5297a4aa69e0f58dbd00504068231ce8431096",
-        "revCount": 9,
-        "type": "git",
-        "url": "http://10.0.0.1:3000/aethan/ContourIntegralMethod"
+        "lastModified": 1667129607,
+        "narHash": "sha256-+h9YO0syZWpcIXn7KutCEUxysde07SWC31k93vYXcdo=",
+        "owner": "PositThesis",
+        "repo": "ContourIntegralMethod",
+        "rev": "c341c7356ca8b78622c80c0273f2fe0ea17da821",
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "http://10.0.0.1:3000/aethan/ContourIntegralMethod"
+        "owner": "PositThesis",
+        "repo": "ContourIntegralMethod",
+        "type": "github"
       }
     },
     "eigen_integrations": {
@@ -90,21 +90,6 @@
     },
     "flake-utils_4": {
       "locked": {
-        "lastModified": 1656928814,
-        "narHash": "sha256-RIFfgBuKz6Hp89yRr7+NR5tzIAbn52h8vT6vXkYjZoM=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "7e2a3b3dfd9af950a856d66b0a7d01e3c18aa249",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "type": "github"
-      }
-    },
-    "flake-utils_5": {
-      "locked": {
         "lastModified": 1659877975,
         "narHash": "sha256-zllb8aq3YO3h8B/U0/J1WBgAL8EX5yWf5pMj3G0NAmc=",
         "owner": "numtide",
@@ -118,7 +103,7 @@
         "type": "github"
       }
     },
-    "krylov": {
+    "manual_krylov": {
       "inputs": {
         "flake-utils": "flake-utils_4",
         "nixpkgs": "nixpkgs_3",
@@ -127,39 +112,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1663228477,
-        "narHash": "sha256-Li5ECnH/rgVdDtepOrUaSVRm7Z1xJDXBktTHRWvOaVs=",
-        "ref": "master",
-        "rev": "f907d1e8ddd1b557b9c9c5ba5bce1eb9d174e581",
-        "revCount": 9,
-        "type": "git",
-        "url": "http://10.0.0.1:3000/aethan/KrylovSolvers"
+        "lastModified": 1667128724,
+        "narHash": "sha256-SEfHgPL2/TJfUG7vZap4/0yGYjAxpLsq4o4ScxxOVc0=",
+        "owner": "PositThesis",
+        "repo": "CustomSolvers",
+        "rev": "5247198bfb4f6de58c3066891fa45886eb19bcd6",
+        "type": "github"
       },
       "original": {
-        "type": "git",
-        "url": "http://10.0.0.1:3000/aethan/KrylovSolvers"
-      }
-    },
-    "manual_krylov": {
-      "inputs": {
-        "flake-utils": "flake-utils_5",
-        "nixpkgs": "nixpkgs_4",
-        "online_lib": [
-          "eigen_integrations"
-        ]
-      },
-      "locked": {
-        "lastModified": 1666097393,
-        "narHash": "sha256-WtXouHUGFqPrGua9s8h/lIObJzxoq67D/MmSncQwMD4=",
-        "ref": "master",
-        "rev": "75fdd1e1a75360d88b3ab550a09c72d906cfe36f",
-        "revCount": 22,
-        "type": "git",
-        "url": "http://10.0.0.1:3000/aethan/ManualSolvers"
-      },
-      "original": {
-        "type": "git",
-        "url": "http://10.0.0.1:3000/aethan/ManualSolvers"
+        "owner": "PositThesis",
+        "repo": "CustomSolvers",
+        "type": "github"
       }
     },
     "nixpkgs": {
@@ -196,22 +159,6 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1657027964,
-        "narHash": "sha256-jseM2zvERPZe5yErbc3wrd6wK8gp0f+e18KJngs5qlo=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "9e96b1562d67a90ca2f7cfb919f1e86b76a65a2c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "release-22.05",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_4": {
-      "locked": {
         "lastModified": 1663494212,
         "narHash": "sha256-gUJir35fXQB7jQKCTffM8str9N6N2soaOL0TqQfJod4=",
         "owner": "NixOS",
@@ -226,7 +173,7 @@
         "type": "github"
       }
     },
-    "nixpkgs_5": {
+    "nixpkgs_4": {
       "locked": {
         "lastModified": 1657497229,
         "narHash": "sha256-au1DERJ/lByijut4hdRcnU9FqL/BONWQWUJ/QbHH/dc=",
@@ -247,9 +194,8 @@
         "cim": "cim",
         "eigen_integrations": "eigen_integrations",
         "flake-utils": "flake-utils_3",
-        "krylov": "krylov",
         "manual_krylov": "manual_krylov",
-        "nixpkgs": "nixpkgs_5"
+        "nixpkgs": "nixpkgs_4"
       }
     },
     "universal_patch": {
